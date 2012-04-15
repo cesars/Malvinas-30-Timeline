@@ -17,7 +17,7 @@
 		<script>
 			$(document).ready(function() {
 				var timeline = new VMM.Timeline();
-				timeline.init("timeline.json");			
+				timeline.init("t.json");			
 			});
 		</script>
 	</body>

@@ -1,5 +1,5 @@
 name = M30 social data
 description = "Obtiene data de medios sociales y genera json."
-package = Core - optional
+package = Malvinas 30 - Timeline
 version = VERSION
 core = 6.x

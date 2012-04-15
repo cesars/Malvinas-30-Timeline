@@ -1,12 +1,12 @@
 <?php
 
-function nl_perm() {
+function sd_perm() {
   return array('access gettwitterdata');
 }
 
 function sd_menu() {
 
-  $items['sd/pull/twitter'] = array( //api para stats
+  $items['timeline/pull/twitter'] = array( //api para stats
     'title' => '',
     'page callback' => 'sd_gettw',
 		'access callback' => TRUE,
@@ -19,45 +19,54 @@ function sd_menu() {
 function sd_gettw(){
 
 	//Recuerde: hay un limite de 120 llamadas por hora por ip
-	$feedjson = "https://api.twitter.com/1/statuses/user_timeline.json?include_entities=true&screen_name=malvinas30&count=200";
+	$tw_last_id = variable_get('tw_last_id');
+	$feedjson = "https://api.twitter.com/1/statuses/user_timeline.json?include_entities=true&screen_name=malvinas30&since_id=";
 
 	$localjson = file_get_contents($feedjson);
 	$twjson = json_decode($localjson, true);
 
-	$timeline['headline'] = 'Malvinas 30';
-	$timeline['type'] = 'default';
-	$timeline['startDate'] = '1982';
-	$timeline['text'] = 'La historia de Malvinas';
-	$timeline['asset']['media'] = 'http://www.flickr.com/photos/cafeina/301765164/';
-	$timeline['asset']['credit'] = '';
-	$timeline['asset']['caption'] = '';
+	$last_id = '';
 
 	//parsear los datos
 	foreach ($twjson as $k => $d) {
-		$past_time = strtotime($d['created_at']);
-		$past_time_str = (date('Y',$past_time)-30).date(',n,j',$past_time);
-		
-		/* para debug
-		echo $d['text'].' : ';
-		echo $d['entities']['media'][0]['media_url'].' : ';
-		echo $d['created_at'].' : ';
-		echo $past_time_str.'';
-		echo '<br/>';
-		*/
 
-		$timeline['date'][$k]['startDate'] = $past_time_str;
-		$timeline['date'][$k]['endDate'] = '';
-		$timeline['date'][$k]['headline'] = ''; 
-		$timeline['date'][$k]['text'] = $d['text'];
-		$timeline['date'][$k]['asset']['media'] = $d['entities']['media'][0]['media_url'];
-		$timeline['date'][$k]['asset']['credit'] = '';
-		$timeline['date'][$k]['asset']['caption'] = '';
+		echo $d['id_str'].', ';
+
+		if($last_id==''){
+			$last_id = $d['id_str'];
+			variable_set('tw_last_id', $d['id_str']);
+		}
+
+		$past_time = strtotime($d['created_at']);
+		$past_time_str = (date('Y-',$past_time)-30).date('-n-j',$past_time);
+		$past_time = strtotime($past_time_str);
+
+		$media = '';
+
+		if(isset($d['entities']['media'][0]['media_url'])){
+			$media = $d['entities']['media'][0]['media_url'];
+		}
+
+		if(isset($d['entities']['urls'][0]['expanded_url'])){
+			$media = $d['entities']['urls'][0]['expanded_url'];
+		}
+
+		//echo ':'.$media.'<hr/>';
+
+		$node = new stdClass();
+
+		$node->type = 'timeline';
+		$node->uid = $user->uid;
+		$node->title = preg_replace('/\b(https?|ftp|file):\/\/[-A-Z0-9+&@#\/%?=~_|$!:,.;]*[A-Z0-9+&@#\/%=~_|$]/i', '', $d['text']);
+		$node->body = '';
+
+		$node->field_startdatetime[0]['value']= $past_time;
+		$node->field_media[0]['value'] = $media;
+
+		node_save($node);
 	}
 
-	//crear el JSON para el timeline
-	$file = '/var/web/playground/static/timeline/timeline.json';
-	$t['timeline'] = $timeline;
-	file_put_contents($file, json_encode($t));
+	echo $last_id;
 
 	die('');
 

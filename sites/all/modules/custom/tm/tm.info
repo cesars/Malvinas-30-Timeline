@@ -1,0 +1,5 @@
+name = M30 timeline generator
+description = "Obtiene data de medios sociales y genera json."
+package = Malvinas 30 - Timeline
+version = VERSION
+core = 6.x

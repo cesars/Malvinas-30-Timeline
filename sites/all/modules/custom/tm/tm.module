@@ -1,0 +1,121 @@
+<?php
+
+function tm_perm() {
+  return array('tm generator');
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+
+function tm_menu() {
+
+  $items['timeline/generator'] = array( //api para stats
+    'title' => '',
+    'page callback' => 'tm_gen',
+		'access callback' => TRUE,
+		'type' => MENU_CALLBACK,
+	);
+
+	return $items;
+} 
+
+/**
+ * Implementation of hook_nodeapi().
+ */
+
+function tm_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL){
+	global $user;
+	//var_dump($op);
+	//var_dump($user->uid);
+	switch($op){
+		
+		case 'insert':
+			tm_gen(0);
+    	break;
+    
+    case 'update':
+    	tm_gen(0);
+   		break;
+
+   	default:
+   		break;
+	}
+
+} //tm_nodepi
+
+/**
+ * Implementation of tm_gen().
+ */
+
+function tm_gen($flag=1){
+
+	$k = 0;
+	$file = $file = '/var/web/playground/static/timeline/t.json';
+
+	//consulta toda la data
+	$q = 'SELECT nid FROM node n';
+  $rs = db_query($q);
+
+  //crea la cabecera
+  $timeline['headline'] = 'Malvinas 30 Timeline';
+	$timeline['type'] = 'default';
+	$timeline['startDate'] = '1982,3,1';
+	$timeline['text'] = 'La historia de Malvinas';
+	$timeline['asset']['media'] = 'http://maps.google.com/maps?q=Islas+Malvinas&hl=en&ll=-51.734022,-59.549105&spn=1.871151,4.938354&sll=-51.248354,-60.197298&sspn=1.891188,4.938354&oq=islas+malvinas&t=w&hq=Islas+Malvinas&z=8';
+	$timeline['asset']['credit'] = '';
+	$timeline['asset']['caption'] = '';
+
+	while ($d = db_fetch_array($rs)){
+
+		$node = node_load($d['nid']);
+
+		//dpm($node);
+		
+		$body = '';
+		if(isset($node->body)){
+			$body = $node->body;
+		}
+
+		$media = '';
+		if(isset($node->field_media[0]['value'])){
+			$media = $node->field_media[0]['value'];
+		}
+
+		$credit = '';
+		if(isset($node->field_media[0]['credit'])){
+			$credit = $node->field_media[0]['credit'];
+		}
+
+		$caption = '';
+		if(isset($node->field_media[0]['captio'])){
+			$caption = $node->field_media[0]['captio'];
+		}
+		
+		$time_str1 =date('Y,n,j',$node->field_startdatetime[0]['value']);
+		$time_str2 =date('Y,n,j',$node->field_startdatetime[0]['value2']);
+
+		$timeline['date'][$k]['startDate'] = $time_str1;
+		$timeline['date'][$k]['endDate'] = '';
+		$timeline['date'][$k]['headline'] = $node->title; 
+		$timeline['date'][$k]['text'] = $body;
+		$timeline['date'][$k]['asset']['media'] = $media;
+		$timeline['date'][$k]['asset']['credit'] = $credit;
+		$timeline['date'][$k]['asset']['caption'] = $caption;
+		
+		$k++;
+	}
+
+	//crear el JSON para el timeline
+	$t['timeline'] = $timeline;
+
+	file_put_contents($file, json_encode($t));
+
+	drupal_set_message('se genero data JSON para timeline');
+
+	if($flag){
+		die('OK');	
+	}
+	
+	return true;
+}
