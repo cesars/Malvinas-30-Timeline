@@ -20,17 +20,67 @@ function sd_gettw(){
 
 	//Recuerde: hay un limite de 120 llamadas por hora por ip
 	$tw_last_id = variable_get('tw_last_id');
-	$feedjson = "https://api.twitter.com/1/statuses/user_timeline.json?include_entities=true&screen_name=malvinas30&since_id=";
 
+	//media credit rules
+	$msite[][0] = 'LaNacion';
+	$msite[][1] = 'La Nación';
+	$msite[][0] = 'LaRazon';
+	$msite[][1] = 'La Razón';
+	$msite[][0] = 'Cronica';
+	$msite[][1] = 'Diario Crónica';
+	$msite[][0] = 'DiarioPopular';
+	$msite[][1] = 'Diario Popular';
+	$msite[][0] = 'Clarin';
+	$msite[][1] = 'Clarín';
+	$msite[][0] = 'DiarioCuyo';
+	$msite[][1] = 'Diario Cuyo';
+	$msite[][0] = 'DiarioRioNegro';
+	$msite[][1] = 'Diario Río Negro';
+	$msite[][0] = 'LaVanguardia';
+	$msite[][1] = 'La Vanguardia';
+	$msite[][0] = 'ElPais';
+	$msite[][1] = 'El País';
+	$msite[][0] = 'TheGuardian';
+	$msite[][1] = 'The Guardian';
+	$msite[][0] = 'BBC';
+	$msite[][1] = 'BBC';
+	$msite[][0] = '1982';
+	$msite[][1] = 'Efemerídes';
+	$msite[][0] = 'Comunicado';
+	$msite[][1] = 'Comunicado Oficial';
+
+	//media caption rules
+	$country[][0] = 'Arg';
+	$country[][1] = 'Argentina';
+	$country[][0] = 'Esp';
+	$country[][1] = 'España';
+	$country[][0] = 'UK';
+	$country[][1] = 'Gran Bretaña';
+
+	//exclude 
+	$exclude[] = 'blog';
+	$exclude[] = 'sitio';
+
+	//prod
+	$feedjson = "https://api.twitter.com/1/statuses/user_timeline.json?include_entities=true&screen_name=malvinas30&since_id=".$tw_last_id;
+	//dev
+	$feedjson = "http://indexante.com/gettw.php";
+
+	//extraer data
 	$localjson = file_get_contents($feedjson);
 	$twjson = json_decode($localjson, true);
 
+	//variables 
 	$last_id = '';
 
 	//parsear los datos
 	foreach ($twjson as $k => $d) {
 
-		echo $d['id_str'].', ';
+		$tags = array();
+		$publish = 1;
+		$media = '';
+		$mediacredit = '';
+		$mediacaption = '';
 
 		if($last_id==''){
 			$last_id = $d['id_str'];
@@ -41,8 +91,6 @@ function sd_gettw(){
 		$past_time_str = (date('Y-',$past_time)-30).date('-n-j',$past_time);
 		$past_time = strtotime($past_time_str);
 
-		$media = '';
-
 		if(isset($d['entities']['media'][0]['media_url'])){
 			$media = $d['entities']['media'][0]['media_url'];
 		}
@@ -51,19 +99,74 @@ function sd_gettw(){
 			$media = $d['entities']['urls'][0]['expanded_url'];
 		}
 
-		//echo ':'.$media.'<hr/>';
+		//obtiene hashtags
+		if(count($d['entities']['hashtags']) > 0){
+			foreach($d['entities']['hashtags'] as $k => $h ){
+				$tags[$k] = $h['text'];
 
-		$node = new stdClass();
+				/*
+				if( ($tags[$k]=='blog') OR ($tags[$k]=='sitio') OR ($tags[$k]=='vivo') ){
+					$publish = 0;
+					break;
+				}
+				*/
 
-		$node->type = 'timeline';
-		$node->uid = $user->uid;
-		$node->title = preg_replace('/\b(https?|ftp|file):\/\/[-A-Z0-9+&@#\/%?=~_|$!:,.;]*[A-Z0-9+&@#\/%=~_|$]/i', '', $d['text']);
-		$node->body = '';
+			}
+		}
 
-		$node->field_startdatetime[0]['value']= $past_time;
-		$node->field_media[0]['value'] = $media;
+		//buscar media credit
+		if( count($tags) > 0) {
+			$flag = 0;
+			foreach($tags as $k => $t){
 
-		node_save($node);
+				foreach($msite as $i => $ms){
+
+					echo $t.'='.$ms[0].'?';
+
+					if (strcasecmp($t, $ms[0]) == 0) {
+						echo $ms[1].'!';
+						$flag = 1;
+						$mediacredit = $ms[1];
+						break;
+					}
+
+				}
+
+				echo '--<br/>';
+
+				if($flag){
+					break;
+				}
+
+			}
+		}
+
+
+		if($publish){
+
+			$title = preg_replace('/\b(https?|ftp|file):\/\/[-A-Z0-9+&@#\/%?=~_|$!:,.;]*[A-Z0-9+&@#\/%=~_|$]/i', '', $d['text']);
+
+			if(count($d['entities']['hashtags'])){
+				echo $d['id_str'].'<br/>';
+				echo $title.':'.$media.'<br/>';
+				echo 'mc: '.$mediacredit.'<br/>';
+				var_dump($tags);
+			}
+			echo '<hr/>';
+
+			$node = new stdClass();
+
+			$node->type = 'timeline';
+			$node->uid = $user->uid;
+			$node->title = $title;
+			$node->body = '';
+
+			$node->field_startdatetime[0]['value']= $past_time;
+			$node->field_media[0]['value'] = $media;
+
+			node_save($node);	
+		}
+		
 	}
 
 	echo $last_id;
