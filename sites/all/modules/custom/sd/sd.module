@@ -20,6 +20,7 @@ function sd_gettw(){
 
 	//Recuerde: hay un limite de 120 llamadas por hora por ip
 	$tw_last_id = variable_get('tw_last_id', 1);
+	$x = 0;
 
 	//media credit rules
 	$msite = array(
@@ -176,6 +177,7 @@ function sd_gettw(){
 			//$node = node_submit($node);
 			
 			node_save($node);	
+			$x++;
 		}
 		else{
 			echo '<hr/>no publica : '.$d['text'].'<hr/>';
@@ -184,7 +186,7 @@ function sd_gettw(){
 	}
 
 	echo $last_id;
-
+	watchdog('notice', 'Se obtuvieron '.$x.' eventos de @malvinas30');
 	die('');
 
 	return true;
