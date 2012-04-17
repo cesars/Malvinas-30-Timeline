@@ -19,68 +19,56 @@ function sd_menu() {
 function sd_gettw(){
 
 	//Recuerde: hay un limite de 120 llamadas por hora por ip
-	$tw_last_id = variable_get('tw_last_id');
+	$tw_last_id = variable_get('tw_last_id', 1);
 
 	//media credit rules
-	$msite[][0] = 'LaNacion';
-	$msite[][1] = 'La Nación';
-	$msite[][0] = 'LaRazon';
-	$msite[][1] = 'La Razón';
-	$msite[][0] = 'Cronica';
-	$msite[][1] = 'Diario Crónica';
-	$msite[][0] = 'DiarioPopular';
-	$msite[][1] = 'Diario Popular';
-	$msite[][0] = 'Clarin';
-	$msite[][1] = 'Clarín';
-	$msite[][0] = 'DiarioCuyo';
-	$msite[][1] = 'Diario Cuyo';
-	$msite[][0] = 'DiarioRioNegro';
-	$msite[][1] = 'Diario Río Negro';
-	$msite[][0] = 'LaVanguardia';
-	$msite[][1] = 'La Vanguardia';
-	$msite[][0] = 'ElPais';
-	$msite[][1] = 'El País';
-	$msite[][0] = 'TheGuardian';
-	$msite[][1] = 'The Guardian';
-	$msite[][0] = 'BBC';
-	$msite[][1] = 'BBC';
-	$msite[][0] = '1982';
-	$msite[][1] = 'Efemerídes';
-	$msite[][0] = 'Comunicado';
-	$msite[][1] = 'Comunicado Oficial';
+	$msite = array(
+			'lanacion' => 'La Nación',
+			'larazon' => 'La Razón',
+			'cronica' => 'Diario Crónica',
+			'diariopopular' => 'Diario Popular',
+			'clarin' => 'Clarín',
+			'diariocuyo' => 'Diario Cuyo',
+			'diariorionegro' => 'Diario Río Negro',
+			'lavanguardia' => 'La Vanguardia',
+			'elpais' => 'El País',
+			'theguardian' => 'The Guardian',
+			'bbc' => 'BBC',
+			'1982' => 'Efemerídes',
+			'comunicado' => 'Comunicado Oficial',
+		);
 
 	//media caption rules
-	$country[][0] = 'Arg';
-	$country[][1] = 'Argentina';
-	$country[][0] = 'Esp';
-	$country[][1] = 'España';
-	$country[][0] = 'UK';
-	$country[][1] = 'Gran Bretaña';
+	$country = array(
+			'arg' => 'Argentina',
+			'esp' => 'España',
+			'uk' => 'Gran Bretaña',
+			'pe' => 'Perú',
+		);
 
 	//exclude 
-	$exclude[] = 'blog';
-	$exclude[] = 'sitio';
+	$exclude = array('blog', 'sitio');
 
 	//prod
 	$feedjson = "https://api.twitter.com/1/statuses/user_timeline.json?include_entities=true&screen_name=malvinas30&since_id=".$tw_last_id;
 	//dev
 	$feedjson = "http://indexante.com/gettw.php";
 
-	//extraer data
+	//get data
 	$localjson = file_get_contents($feedjson);
 	$twjson = json_decode($localjson, true);
 
-	//variables 
+	//vars 
 	$last_id = '';
 
 	//parsear los datos
 	foreach ($twjson as $k => $d) {
 
+		//vars
 		$tags = array();
 		$publish = 1;
 		$media = '';
-		$mediacredit = '';
-		$mediacaption = '';
+		$assets = array();
 
 		if($last_id==''){
 			$last_id = $d['id_str'];
@@ -104,67 +92,91 @@ function sd_gettw(){
 			foreach($d['entities']['hashtags'] as $k => $h ){
 				$tags[$k] = $h['text'];
 
-				/*
 				if( ($tags[$k]=='blog') OR ($tags[$k]=='sitio') OR ($tags[$k]=='vivo') ){
 					$publish = 0;
 					break;
 				}
-				*/
 
 			}
 		}
 
-		//buscar media credit
+		//buscar media credit y media caption
 		if( count($tags) > 0) {
-			$flag = 0;
-			foreach($tags as $k => $t){
+			$mediacc[0] = $msite;
+			$mediacc[1] = $country;
 
-				foreach($msite as $i => $ms){
+			foreach($mediacc as $i => $arr ){
 
-					echo $t.'='.$ms[0].'?';
+				foreach($tags as $k => $t){
 
-					if (strcasecmp($t, $ms[0]) == 0) {
-						echo $ms[1].'!';
-						$flag = 1;
-						$mediacredit = $ms[1];
+				$t = strtolower($t);
+
+					if( array_key_exists($t, $arr) ){
+						$assets[$i] = $arr[$t];
+						//echo 'asset '.$i.' : '.$t.' :'.$arr[$t].'<br/>';
 						break;
 					}
 
 				}
-
-				echo '--<br/>';
-
-				if($flag){
-					break;
-				}
-
 			}
-		}
 
+		}
 
 		if($publish){
 
 			$title = preg_replace('/\b(https?|ftp|file):\/\/[-A-Z0-9+&@#\/%?=~_|$!:,.;]*[A-Z0-9+&@#\/%=~_|$]/i', '', $d['text']);
+			$body = '';
 
-			if(count($d['entities']['hashtags'])){
-				echo $d['id_str'].'<br/>';
-				echo $title.':'.$media.'<br/>';
-				echo 'mc: '.$mediacredit.'<br/>';
-				var_dump($tags);
+			$ex = explode("&gt;", $title, 2);
+			if(is_array($ex)){
+				$title = $ex[0];
+				$body = $ex[1];
 			}
-			echo '<hr/>';
 
+			$url = parse_url($media);
+			
+			if($url['host'] == 'ow.ly'){
+				$body .= ' '.$media;
+				$media = '';
+			}
+
+			$mytags = implode(', ', $tags);
+			
+				echo $d['id_str'].'<br/>';
+				echo $title.'<br/>';
+				echo 'body : '.$body.'<br/>';
+				echo 'media : '.$media.'<br/>';
+				echo 'media credit : '.$assets[0].'<br/>';
+				echo 'media caption : '.$assets[1].'<br/>';
+				echo 'tags : '.$mytags.'<br/>';
+				echo '<hr/>';
+			
+			
 			$node = new stdClass();
 
 			$node->type = 'timeline';
 			$node->uid = $user->uid;
 			$node->title = $title;
-			$node->body = '';
+			$node->body = $body;
 
 			$node->field_startdatetime[0]['value']= $past_time;
 			$node->field_media[0]['value'] = $media;
 
+			// this is the code for saving the free tag taxonomy terms
+			if($mytags){
+				$node->taxonomy = array(
+ 					'tags' => array(
+ 						'1' => strtolower($mytags)
+ 					)
+ 				);	
+			}
+ 			
+			//$node = node_submit($node);
+			
 			node_save($node);	
+		}
+		else{
+			echo '<hr/>no publica : '.$d['text'].'<hr/>';
 		}
 		
 	}
